@@ -70,33 +70,70 @@ class ApiException implements Exception {
 ///
 /// MOCK ApiService - works without backend
 /// Your friend will later replace these implementations
-/// with real HTTP calls to /login, /quiz, /submit-quiz, etc.
+/// with real HTTP calls to /login, /register, /quiz, /submit-quiz, etc.
 ///
 class ApiService {
   // In-memory student state (for demo)
   final Map<String, StudentAppState> _studentState = {};
   final Map<String, String?> _studentTask = {};
 
+  /// REGISTER
+  ///
+  /// TODO: Replace with real POST /register
+  ///
+  /// Body:
+  /// {
+  ///   "email": "",
+  ///   "student_id": "",
+  ///   "password": ""
+  /// }
+  Future<LoginResponse> register({
+    required String email,
+    required String studentId,
+    required String password,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 700));
+
+    if (email.isEmpty || studentId.isEmpty || password.isEmpty) {
+      throw ApiException('All fields are required.');
+    }
+
+    _studentState[studentId] = StudentAppState.normal;
+
+    return LoginResponse(
+      token: 'mock_token_$studentId',
+      studentId: studentId,
+      name: 'Student $studentId',
+    );
+  }
+
   /// LOGIN
   ///
   /// TODO: Replace with real POST /login
+  ///
+  /// Body:
+  /// {
+  ///   "email": "",
+  ///   "student_id": "",
+  ///   "password": ""
+  /// }
   Future<LoginResponse> login({
     required String email,
+    required String studentId,
     required String password,
   }) async {
     await Future.delayed(const Duration(milliseconds: 600));
 
-    if (email.isEmpty || password.isEmpty) {
-      throw ApiException('Email and password are required.');
+    if (email.isEmpty || studentId.isEmpty || password.isEmpty) {
+      throw ApiException('All fields are required.');
     }
 
-    const studentId = 'student_123';
     _studentState[studentId] = _studentState[studentId] ?? StudentAppState.normal;
 
     return LoginResponse(
       token: 'mock_token_$studentId',
       studentId: studentId,
-      name: 'Demo Student',
+      name: 'Student $studentId',
     );
   }
 
@@ -109,7 +146,6 @@ class ApiService {
   }) async {
     await Future.delayed(const Duration(milliseconds: 600));
 
-    // Mock quiz
     final questions = <QuizQuestion>[
       QuizQuestion(
         id: 'q1',
@@ -148,19 +184,15 @@ class ApiService {
   }) async {
     await Future.delayed(const Duration(milliseconds: 1200));
 
-    // Simple mock scoring: count how many answers are non-empty
-    // In real backend, answer checking + scoring happens.
     final maxScore = answers.length;
     final score = answers.values.where((a) => a.isNotEmpty).length;
 
-    // Mock passing rule: need at least 70%
     final passed = score >= (0.7 * maxScore);
 
     final newState = passed ? StudentAppState.normal : StudentAppState.locked;
     _studentState[studentId] = newState;
 
     if (!passed) {
-      // Clear any previous task; mentor + n8n will assign new one
       _studentTask[studentId] = null;
     }
 
@@ -202,8 +234,7 @@ class ApiService {
     _studentTask[studentId] = null;
   }
 
-  /// MOCK: This simulates mentor assigning remedial task.
-  /// Useful only for testing the remedial flow without backend.
+  /// MOCK: simulate mentor assigning remedial task (for testing only)
   Future<void> assignMockRemedialTask({
     required String studentId,
     required String task,

@@ -2,16 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth_controller.dart';
 import '../home/home_screen.dart';
-import 'register_screen.dart';
 
-class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+class RegisterScreen extends ConsumerStatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _emailController = TextEditingController();
   final _studentIdController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -25,11 +24,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _onLogin() async {
+  Future<void> _onRegister() async {
     if (!_formKey.currentState!.validate()) return;
 
     final authNotifier = ref.read(authControllerProvider.notifier);
-    await authNotifier.login(
+    await authNotifier.register(
       email: _emailController.text.trim(),
       studentId: _studentIdController.text.trim(),
       password: _passwordController.text.trim(),
@@ -66,7 +65,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Text(
-                      'Student Login',
+                      'Student Registration',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 24,
@@ -127,7 +126,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     SizedBox(
                       height: 44,
                       child: ElevatedButton(
-                        onPressed: authState.isLoading ? null : _onLogin,
+                        onPressed: authState.isLoading ? null : _onRegister,
                         child: authState.isLoading
                             ? const SizedBox(
                                 width: 18,
@@ -135,19 +134,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 child:
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : const Text('Login'),
+                            : const Text('Register'),
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextButton(
                       onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const RegisterScreen(),
-                          ),
-                        );
+                        Navigator.of(context).pop();
                       },
-                      child: const Text('New student? Register'),
+                      child: const Text('Already have an account? Login'),
                     ),
                   ],
                 ),

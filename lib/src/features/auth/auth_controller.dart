@@ -40,7 +40,8 @@ class AuthState {
 }
 
 final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
-final storageServiceProvider = Provider<StorageService>((ref) => StorageService());
+final storageServiceProvider =
+    Provider<StorageService>((ref) => StorageService());
 
 final authControllerProvider =
     StateNotifierProvider<AuthController, AuthState>((ref) {
@@ -77,16 +78,59 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<void> login({
     required String email,
+    required String studentId,
     required String password,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final res = await apiService.login(email: email, password: password);
+      final res = await apiService.login(
+        email: email,
+        studentId: studentId,
+        password: password,
+      );
+
       await storageService.saveAuth(
         token: res.token,
         studentId: res.studentId,
         name: res.name,
       );
+
+      state = state.copyWith(
+        isLoading: false,
+        isAuthenticated: true,
+        token: res.token,
+        studentId: res.studentId,
+        name: res.name,
+      );
+    } on ApiException catch (e) {
+      state = state.copyWith(isLoading: false, error: e.message);
+    } catch (_) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Something went wrong. Please try again.',
+      );
+    }
+  }
+
+  Future<void> register({
+    required String email,
+    required String studentId,
+    required String password,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final res = await apiService.register(
+        email: email,
+        studentId: studentId,
+        password: password,
+      );
+
+      await storageService.saveAuth(
+        token: res.token,
+        studentId: res.studentId,
+        name: res.name,
+      );
+
       state = state.copyWith(
         isLoading: false,
         isAuthenticated: true,
