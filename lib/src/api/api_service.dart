@@ -1,16 +1,18 @@
-import 'dart:async';
-
-enum StudentAppState { normal, locked, remedial }
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../features/status/status_controller.dart'; // for StudentAppState enum
 
 class LoginResponse {
-  final String token;
   final String studentId;
   final String name;
+  final String email;
+  final String status;
 
   LoginResponse({
-    required this.token,
     required this.studentId,
     required this.name,
+    required this.email,
+    required this.status,
   });
 }
 
@@ -40,207 +42,166 @@ class SubmitQuizResult {
   final int score;
   final int maxScore;
   final bool passed;
-  final StudentAppState studentState;
 
   SubmitQuizResult({
     required this.score,
     required this.maxScore,
     required this.passed,
-    required this.studentState,
   });
 }
 
 class StudentStatus {
   final StudentAppState state;
   final String? task;
+  final String? mentorName;
 
   StudentStatus({
     required this.state,
     this.task,
+    this.mentorName,
   });
 }
 
 class ApiException implements Exception {
   final String message;
   ApiException(this.message);
-  @override
-  String toString() => 'ApiException: $message';
 }
 
-///
-/// MOCK ApiService - works without backend
-/// Your friend will later replace these implementations
-/// with real HTTP calls to /login, /register, /quiz, /submit-quiz, etc.
-///
 class ApiService {
-  // In-memory student state (for demo)
-  final Map<String, StudentAppState> _studentState = {};
-  final Map<String, String?> _studentTask = {};
+  static const _getQuizUrl =
+      "https://quiz-test-wgcc.onrender.com/api-quiz/get-quiz";
+  static const _submitQuizUrl =
+      "https://quiz-test-wgcc.onrender.com/api-quiz/submit-quiz";
+  static const _loginUrl =
+      "https://quiz-test-wgcc.onrender.com/api-student/create";
+  static const _markCompleteUrl =
+      "https://quiz-test-wgcc.onrender.com/api-student/task-complete"; 
 
-  /// REGISTER
-  ///
-  /// TODO: Replace with real POST /register
-  ///
-  /// Body:
-  /// {
-  ///   "email": "",
-  ///   "student_id": "",
-  ///   "password": ""
-  /// }
-  Future<LoginResponse> register({
-    required String email,
-    required String studentId,
-    required String password,
-  }) async {
-    await Future.delayed(const Duration(milliseconds: 700));
-
-    if (email.isEmpty || studentId.isEmpty || password.isEmpty) {
-      throw ApiException('All fields are required.');
-    }
-
-    _studentState[studentId] = StudentAppState.normal;
-
-    return LoginResponse(
-      token: 'mock_token_$studentId',
-      studentId: studentId,
-      name: 'Student $studentId',
-    );
-  }
-
-  /// LOGIN
-  ///
-  /// TODO: Replace with real POST /login
-  ///
-  /// Body:
-  /// {
-  ///   "email": "",
-  ///   "student_id": "",
-  ///   "password": ""
-  /// }
+  /// LOGIN — create student session
   Future<LoginResponse> login({
     required String email,
     required String studentId,
     required String password,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 600));
+    final res = await http.post(
+      Uri.parse(_loginUrl),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"email": email, "id": studentId, "password": password}),
+    );
 
-    if (email.isEmpty || studentId.isEmpty || password.isEmpty) {
-      throw ApiException('All fields are required.');
-    }
+    print("📥 Login response => ${res.body}");
 
-    _studentState[studentId] = _studentState[studentId] ?? StudentAppState.normal;
+    final json = jsonDecode(res.body);
 
     return LoginResponse(
-      token: 'mock_token_$studentId',
-      studentId: studentId,
-      name: 'Student $studentId',
+      studentId: json["id"] ?? studentId,
+      name: json["name"] ?? "Student",
+      email: json["email"] ?? email,
+      status: json["status"] ?? "On Track",
     );
   }
 
-  /// FETCH QUIZ (multiple questions)
-  ///
-  /// TODO: Replace with real GET /quiz
-  Future<QuizData> fetchQuiz({
-    required String token,
-    required String studentId,
-  }) async {
-    await Future.delayed(const Duration(milliseconds: 600));
+  /// GET QUIZ — loads quiz
+  Future<QuizData> getQuiz() async {
+    final res = await http.get(Uri.parse(_getQuizUrl));
+    print("📥 Quiz response => ${res.body}");
 
-    final questions = <QuizQuestion>[
-      QuizQuestion(
-        id: 'q1',
-        text: 'What is 2 + 2?',
-        options: ['1', '2', '3', '4'],
-      ),
-      QuizQuestion(
-        id: 'q2',
-        text: 'Which planet is known as the Red Planet?',
-        options: ['Earth', 'Mars', 'Jupiter', 'Venus'],
-      ),
-      QuizQuestion(
-        id: 'q3',
-        text: 'Flutter is primarily used for?',
-        options: ['Web', 'Mobile', 'Desktop', 'All of the above'],
-      ),
-    ];
+    if (res.statusCode != 200) throw ApiException("Failed to fetch quiz");
+
+    final json = jsonDecode(res.body);
+
+    final questions = (json["questions"] as List).map((q) {
+      return QuizQuestion(
+        id: q["id"],
+        text: q["text"],
+        options: List<String>.from(q["options"]),
+      );
+    }).toList();
 
     return QuizData(
-      quizId: 'quiz_001',
+      quizId: json["quiz_id"],
       questions: questions,
     );
   }
 
-  /// SUBMIT QUIZ + focus minutes
-  ///
-  /// TODO: Replace with real POST /submit-quiz
-  ///
-  /// answers: Map<questionId, optionText>
+  /// SUBMIT QUIZ — with focus time
   Future<SubmitQuizResult> submitQuiz({
-    required String token,
     required String studentId,
     required String quizId,
     required Map<String, String> answers,
     required int focusMinutes,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 1200));
+    final answersList = answers.entries.map((entry) {
+      return {
+        "question_id": entry.key,
+        "answer": entry.value,
+      };
+    }).toList();
 
-    final maxScore = answers.length;
-    final score = answers.values.where((a) => a.isNotEmpty).length;
+    final body = {
+      "student_id": studentId,
+      "quiz_id": quizId,
+      "answers": answersList,
+      "focus_minutes": focusMinutes,
+    };
 
-    final passed = score >= (0.7 * maxScore);
+  //  print("🚀 SUBMIT REQUEST BODY => ${jsonEncode(body)}");
 
-    final newState = passed ? StudentAppState.normal : StudentAppState.locked;
-    _studentState[studentId] = newState;
+    final res = await http.post(
+      Uri.parse(_submitQuizUrl),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode(body),
+    );
 
-    if (!passed) {
-      _studentTask[studentId] = null;
-    }
+    print("📥 Submit Response => ${res.body}");
+
+    if (res.statusCode != 200) throw ApiException("Submit failed");
+
+    final json = jsonDecode(res.body);
 
     return SubmitQuizResult(
-      score: score,
-      maxScore: maxScore,
-      passed: passed,
-      studentState: newState,
+      score: json["score"] ?? 0,
+      maxScore: json["total"] ?? 0,
+      passed: json["status"] == "success",
     );
   }
 
-  /// GET STUDENT STATUS
-  ///
-  /// TODO: Replace with real GET /student-status/:id
-  Future<StudentStatus> getStudentStatus({
-    required String token,
-    required String studentId,
-  }) async {
-    await Future.delayed(const Duration(milliseconds: 600));
+  /// GET STUDENT STATUS — Locked / Remedial / Normal
+  Future<StudentStatus> getStudentStatus(String studentId) async {
+  final url = Uri.parse("https://quiz-test-wgcc.onrender.com/api-student/status?student_id=$studentId");
 
-    final state = _studentState[studentId] ?? StudentAppState.normal;
-    final task = _studentTask[studentId];
+  print("📤 GET Status => $url");
 
-    return StudentStatus(
-      state: state,
-      task: task,
-    );
+  final res = await http.get(url);
+  print("📥 STATUS Response => ${res.body} | status=${res.statusCode}");
+
+  if (res.statusCode != 200) {
+    throw ApiException("Failed to fetch student status");
   }
+
+  final json = jsonDecode(res.body);
+
+  late final StudentAppState state;
+  if (json["status"] == "Normal") state = StudentAppState.normal;
+  else if (json["status"] == "Remedial") state = StudentAppState.remedial;
+  else state = StudentAppState.locked;
+
+  return StudentStatus(
+    state: state,
+    task: json["task"],
+    mentorName: json["mentor_name"],
+  );
+}
+
 
   /// MARK TASK COMPLETE
-  ///
-  /// TODO: Replace with real POST /mark-complete
-  Future<void> markTaskComplete({
-    required String token,
-    required String studentId,
-  }) async {
-    await Future.delayed(const Duration(milliseconds: 600));
-    _studentState[studentId] = StudentAppState.normal;
-    _studentTask[studentId] = null;
-  }
+  Future<void> markTaskComplete({required String studentId}) async {
+    final res = await http.post(
+      Uri.parse(_markCompleteUrl),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"student_id": studentId}),
+    );
 
-  /// MOCK: simulate mentor assigning remedial task (for testing only)
-  Future<void> assignMockRemedialTask({
-    required String studentId,
-    required String task,
-  }) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    _studentState[studentId] = StudentAppState.remedial;
-    _studentTask[studentId] = task;
+    print("📥 Task Complete Response => ${res.body}");
   }
 }

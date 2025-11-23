@@ -1,18 +1,25 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod/legacy.dart';
-import '../../api/api_service.dart';
 import '../auth/auth_controller.dart';
+import '../../api/api_service.dart';
+
+/// student can have 3 states from backend:
+enum StudentAppState { normal, locked, remedial }
 
 class StatusState {
   final bool isLoading;
-  final StudentAppState state;
+  final StudentAppState? state;
   final String? task;
+  final String? mentorName;
+  final String? mentorEmail;
   final String? error;
 
   const StatusState({
     this.isLoading = false,
-    this.state = StudentAppState.normal,
+    this.state,
     this.task,
+    this.mentorName,
+    this.mentorEmail,
     this.error,
   });
 
@@ -20,12 +27,16 @@ class StatusState {
     bool? isLoading,
     StudentAppState? state,
     String? task,
+    String? mentorName,
+    String? mentorEmail,
     String? error,
   }) {
     return StatusState(
       isLoading: isLoading ?? this.isLoading,
       state: state ?? this.state,
       task: task ?? this.task,
+      mentorName: mentorName ?? this.mentorName,
+      mentorEmail: mentorEmail ?? this.mentorEmail,
       error: error,
     );
   }
@@ -33,70 +44,44 @@ class StatusState {
 
 final statusControllerProvider =
     StateNotifierProvider<StatusController, StatusState>((ref) {
-  final api = ref.watch(apiServiceProvider);
-  final auth = ref.watch(authControllerProvider);
-  return StatusController(apiService: api, authState: auth);
+  final api = ref.watch(apiProvider);
+  return StatusController(api);
 });
 
 class StatusController extends StateNotifier<StatusState> {
-  final ApiService apiService;
-  final AuthState authState;
+  final ApiService api;
 
-  StatusController({
-    required this.apiService,
-    required this.authState,
-  }) : super(const StatusState(isLoading: false)) {
-    refreshStatus();
-  }
+  StatusController(this.api) : super(const StatusState());
 
-  String? get _token => authState.token;
-  String? get _studentId => authState.studentId;
-
-  bool get _hasAuth => _token != null && _studentId != null;
-
-  Future<void> refreshStatus() async {
-    if (!_hasAuth) return;
+  /// load status from backend
+  Future<void> loadStatus(String studentId) async {
     state = state.copyWith(isLoading: true, error: null);
+
     try {
-      final res = await apiService.getStudentStatus(
-        token: _token!,
-        studentId: _studentId!,
-      );
+      final status = await api.getStudentStatus(studentId); // 👈 FIXED
       state = state.copyWith(
         isLoading: false,
-        state: res.state,
-        task: res.task,
+        state: status.state,
+        task: status.task,
+        mentorName: status.mentorName,
       );
-    } on ApiException catch (e) {
-      state = state.copyWith(isLoading: false, error: e.message);
-    } catch (_) {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Failed to fetch status.',
-      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
-  Future<void> markTaskComplete() async {
-    if (!_hasAuth) return;
-    state = state.copyWith(isLoading: true, error: null);
+  Future<void> refreshStatus(String studentId) async {
+    await loadStatus(studentId);
+  }
+
+  /// Mark task complete
+  Future<void> completeTask(String studentId) async {
+    state = state.copyWith(isLoading: true);
     try {
-      await apiService.markTaskComplete(
-        token: _token!,
-        studentId: _studentId!,
-      );
-      state = state.copyWith(
-        isLoading: false,
-        state: StudentAppState.normal,
-        task: null,
-      );
-    } on ApiException catch (e) {
-      state = state.copyWith(isLoading: false, error: e.message);
-    } catch (_) {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Failed to mark task complete.',
-      );
+      await api.markTaskComplete(studentId: studentId);
+      await loadStatus(studentId); // reload after completion
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 }

@@ -1,8 +1,7 @@
+import 'package:alcovia/src/features/home/home_screen.dart';
+import 'package:alcovia/src/features/auth/auth_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'auth_controller.dart';
-import '../home/home_screen.dart';
-import 'register_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -12,142 +11,115 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _emailController = TextEditingController();
-  final _studentIdController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final _email = TextEditingController();
+  final _studentId = TextEditingController();
+  final _password = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+
+  bool _listenerSet = false;
 
   @override
   void dispose() {
-    _emailController.dispose();
-    _studentIdController.dispose();
-    _passwordController.dispose();
+    _email.dispose();
+    _studentId.dispose();
+    _password.dispose();
     super.dispose();
-  }
-
-  Future<void> _onLogin() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final authNotifier = ref.read(authControllerProvider.notifier);
-    await authNotifier.login(
-      email: _emailController.text.trim(),
-      studentId: _studentIdController.text.trim(),
-      password: _passwordController.text.trim(),
-    );
-
-    final authState = ref.read(authControllerProvider);
-    if (authState.error != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(authState.error!)),
-      );
-    } else if (authState.isAuthenticated && mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-        (route) => false,
-      );
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authControllerProvider);
+    final auth = ref.watch(authControllerProvider);
+
+    // Riverpod listener inside build (safe with guard)
+    if (!_listenerSet) {
+      _listenerSet = true;
+
+      ref.listen<AuthState>(authControllerProvider, (prev, next) {
+        if (!mounted) return;
+
+        // 🔥 as soon as authenticated, navigate — no validation required
+        if (next.isAuthenticated) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+            (route) => false,
+          );
+        }
+      });
+    }
 
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
+            constraints: const BoxConstraints(maxWidth: 420),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.all(20),
               child: Form(
                 key: _formKey,
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Text(
-                      'Student Login',
+                      "Student Login",
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Student Email',
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Please enter email';
-                        }
-                        if (!v.contains('@')) {
-                          return 'Please enter a valid email';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _studentIdController,
-                      decoration: const InputDecoration(
-                        labelText: 'Student ID',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Please enter student ID';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _passwordController,
-                      decoration: const InputDecoration(
-                        labelText: 'Password',
-                        border: OutlineInputBorder(),
-                      ),
-                      obscureText: true,
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Please enter password';
-                        }
-                        if (v.length < 4) {
-                          return 'Password must be at least 4 characters';
-                        }
-                        return null;
-                      },
+                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 20),
-                    SizedBox(
-                      height: 44,
-                      child: ElevatedButton(
-                        onPressed: authState.isLoading ? null : _onLogin,
-                        child: authState.isLoading
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text('Login'),
+
+                    TextFormField(
+                      controller: _email,
+                      decoration: const InputDecoration(
+                        labelText: "Student Email",
+                        border: OutlineInputBorder(),
                       ),
+                      validator: (v) => v == null || v.isEmpty ? "Enter email" : null,
                     ),
                     const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const RegisterScreen(),
-                          ),
-                        );
-                      },
-                      child: const Text('New student? Register'),
+
+                    TextFormField(
+                      controller: _studentId,
+                      decoration: const InputDecoration(
+                        labelText: "Student ID",
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) => v == null || v.isEmpty ? "Enter Student ID" : null,
+                    ),
+                    const SizedBox(height: 12),
+
+                    TextFormField(
+                      controller: _password,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: "Password",
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) => v == null || v.isEmpty ? "Enter password" : null,
+                    ),
+                    const SizedBox(height: 22),
+
+                    SizedBox(
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: auth.isLoading
+                            ? null
+                            : () {
+                                if (_formKey.currentState!.validate()) {
+                                  ref.read(authControllerProvider.notifier).login(
+                                        email: _email.text.trim(),
+                                        studentId: _studentId.text.trim(),
+                                        password: _password.text.trim(),
+                                      );
+                                }
+                              },
+                        child: auth.isLoading
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text("Login"),
+                      ),
                     ),
                   ],
                 ),

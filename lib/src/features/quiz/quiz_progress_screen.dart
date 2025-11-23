@@ -1,9 +1,8 @@
-import 'package:alcovia/src/api/api_service.dart';
+import 'package:alcovia/src/features/auth/auth_controller.dart';
 import 'package:alcovia/src/features/quiz/thankyou_screen.dart';
 import 'package:alcovia/src/features/status/status_lockscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../auth/auth_controller.dart';
 import 'quiz_controller.dart';
 
 class QuizProgressScreen extends ConsumerStatefulWidget {
@@ -19,41 +18,37 @@ class _QuizProgressScreenState extends ConsumerState<QuizProgressScreen> {
   @override
   void initState() {
     super.initState();
-    // Delay a frame so build has context before async call
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _submit();
+      _submitQuiz();
     });
   }
 
-  Future<void> _submit() async {
+  Future<void> _submitQuiz() async {
     if (_submitted) return;
     _submitted = true;
 
     final auth = ref.read(authControllerProvider);
-    if (auth.token == null || auth.studentId == null) {
-      if (mounted) Navigator.of(context).pop();
-      return;
-    }
-
     final quizNotifier = ref.read(quizControllerProvider.notifier);
+
     final result = await quizNotifier.submitQuiz(
-      token: auth.token!,
       studentId: auth.studentId!,
     );
 
-    final quizState = ref.read(quizControllerProvider);
-    if (quizState.error != null && mounted) {
+    if (!mounted) return;
+
+    // If backend failed or quiz didn't return result
+    if (result == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(quizState.error!)),
+        const SnackBar(content: Text("Failed to submit quiz")),
       );
-      Navigator.of(context).pop();
+      Navigator.pop(context);
       return;
     }
 
-    if (!mounted || result == null) return;
-
-    if (result.passed && result.studentState == StudentAppState.normal) {
-      Navigator.of(context).pushReplacement(
+    // Auto navigation based on result
+    if (result.passed) {
+      Navigator.pushReplacement(
+        context,
         MaterialPageRoute(
           builder: (_) => ThankYouScreen(
             score: result.score,
@@ -62,7 +57,8 @@ class _QuizProgressScreenState extends ConsumerState<QuizProgressScreen> {
         ),
       );
     } else {
-      Navigator.of(context).pushReplacement(
+      Navigator.pushReplacement(
+        context,
         MaterialPageRoute(
           builder: (_) => const LockedScreen(),
         ),

@@ -1,4 +1,4 @@
-import 'package:alcovia/src/api/api_service.dart';
+import 'package:alcovia/src/features/quiz/quiz_controller.dart';
 import 'package:alcovia/src/features/status/status_lockscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,18 +16,19 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Home'),
+        backgroundColor: Colors.black,
+        title: const Text("Home", style: TextStyle(color: Colors.white)),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () {
               ref.read(authControllerProvider.notifier).logout();
             },
-          )
+          ),
         ],
       ),
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: Colors.grey.shade800,
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
@@ -40,7 +41,7 @@ class HomeScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Welcome, ${authState.name ?? 'Student'}',
+                    'Welcome, ${authState.name ?? "Student"}',
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w600,
@@ -53,14 +54,14 @@ class HomeScreen extends ConsumerWidget {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
+
                   if (statusState.isLoading)
                     const CircularProgressIndicator()
-                  else if (statusState.state == StudentAppState.locked ||
-                      statusState.state == StudentAppState.remedial)
+                  else if (statusState.state == StudentAppState.locked)
                     Column(
                       children: [
                         const Text(
-                          'Your account is currently locked or in remedial state.',
+                          "Your profile is currently locked.",
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 12),
@@ -68,15 +69,16 @@ class HomeScreen extends ConsumerWidget {
                           width: double.infinity,
                           child: ElevatedButton(
                             onPressed: () {
-                              Navigator.of(context).push(
+                              Navigator.push(
+                                context,
                                 MaterialPageRoute(
                                   builder: (_) => const LockedScreen(),
                                 ),
                               );
                             },
-                            child: const Text('View Status'),
+                            child: const Text("View Status"),
                           ),
-                        )
+                        ),
                       ],
                     )
                   else
@@ -84,22 +86,17 @@ class HomeScreen extends ConsumerWidget {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
-                          Navigator.of(context).push(
+                          ref.read(quizControllerProvider.notifier).loadQuiz();
+                          Navigator.push(
+                            context,
                             MaterialPageRoute(
                               builder: (_) => const QuizScreen(),
                             ),
                           );
                         },
-                        child: const Text('Start Quiz'),
+                        child: const Text("Start Quiz"),
                       ),
                     ),
-                  const SizedBox(height: 12),
-                  // TextButton(
-                  //   onPressed: () {
-                  //     ref.read(statusControllerProvider.notifier).refreshStatus();
-                  //   },
-                  //   child: const Text('Refresh Status'),
-                  // )
                 ],
               ),
             ),

@@ -1,78 +1,76 @@
+import 'package:alcovia/src/api/api_service.dart';
+import 'package:alcovia/src/utils/storage_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod/legacy.dart';
-import '../../api/api_service.dart';
-import '../../utils/storage_service.dart';
 
 class AuthState {
   final bool isLoading;
   final bool isAuthenticated;
-  final String? token;
   final String? studentId;
   final String? name;
+  final String? email;
+  final String? status;
   final String? error;
 
   const AuthState({
     this.isLoading = false,
     this.isAuthenticated = false,
-    this.token,
     this.studentId,
     this.name,
+    this.email,
+    this.status,
     this.error,
   });
 
   AuthState copyWith({
     bool? isLoading,
     bool? isAuthenticated,
-    String? token,
     String? studentId,
     String? name,
+    String? email,
+    String? status,
     String? error,
   }) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
-      token: token ?? this.token,
       studentId: studentId ?? this.studentId,
       name: name ?? this.name,
+      email: email ?? this.email,
+      status: status ?? this.status,
       error: error,
     );
   }
 }
 
-final apiServiceProvider = Provider<ApiService>((ref) => ApiService());
-final storageServiceProvider =
-    Provider<StorageService>((ref) => StorageService());
+final apiProvider = Provider<ApiService>((ref) => ApiService());
+final storageProvider = Provider<StorageService>((ref) => StorageService());
 
 final authControllerProvider =
     StateNotifierProvider<AuthController, AuthState>((ref) {
-  final api = ref.watch(apiServiceProvider);
-  final storage = ref.watch(storageServiceProvider);
-  return AuthController(apiService: api, storageService: storage);
+  final api = ref.read(apiProvider);
+  final storage = ref.read(storageProvider);
+  return AuthController(api, storage);
 });
 
 class AuthController extends StateNotifier<AuthState> {
-  final ApiService apiService;
-  final StorageService storageService;
+  final ApiService api;
+  final StorageService storage;
 
-  AuthController({
-    required this.apiService,
-    required this.storageService,
-  }) : super(const AuthState(isLoading: true)) {
-    _init();
+  AuthController(this.api, this.storage) : super(const AuthState()) {
+    _restoreSession();
   }
 
-  Future<void> _init() async {
-    final auth = await storageService.loadAuth();
-    if (auth.token != null && auth.studentId != null) {
+  Future<void> _restoreSession() async {
+    final saved = await storage.loadAuth();
+    if (saved.studentId != null) {
       state = state.copyWith(
-        isLoading: false,
         isAuthenticated: true,
-        token: auth.token,
-        studentId: auth.studentId,
-        name: auth.name,
+        studentId: saved.studentId,
+        name: saved.name,
+        email: saved.email,
+        status: saved.status,
       );
-    } else {
-      state = state.copyWith(isLoading: false, isAuthenticated: false);
     }
   }
 
@@ -82,74 +80,42 @@ class AuthController extends StateNotifier<AuthState> {
     required String password,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
+
     try {
-      final res = await apiService.login(
+      final result = await api.login(
         email: email,
         studentId: studentId,
         password: password,
       );
 
-      await storageService.saveAuth(
-        token: res.token,
-        studentId: res.studentId,
-        name: res.name,
+      await storage.saveAuth(
+        studentId: result.studentId,
+        name: result.name,
+        email: result.email,
+        status: result.status,
       );
 
       state = state.copyWith(
         isLoading: false,
         isAuthenticated: true,
-        token: res.token,
-        studentId: res.studentId,
-        name: res.name,
+        studentId: result.studentId,
+        name: result.name,
+        email: result.email,
+        status: result.status,
+        error: null,
       );
-    } on ApiException catch (e) {
-      state = state.copyWith(isLoading: false, error: e.message);
     } catch (_) {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Something went wrong. Please try again.',
-      );
-    }
-  }
-
-  Future<void> register({
-    required String email,
-    required String studentId,
-    required String password,
-  }) async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      final res = await apiService.register(
-        email: email,
-        studentId: studentId,
-        password: password,
-      );
-
-      await storageService.saveAuth(
-        token: res.token,
-        studentId: res.studentId,
-        name: res.name,
-      );
-
+      // still allow login even if backend failed
       state = state.copyWith(
         isLoading: false,
         isAuthenticated: true,
-        token: res.token,
-        studentId: res.studentId,
-        name: res.name,
-      );
-    } on ApiException catch (e) {
-      state = state.copyWith(isLoading: false, error: e.message);
-    } catch (_) {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Something went wrong. Please try again.',
+        error: null,
       );
     }
   }
 
   Future<void> logout() async {
-    await storageService.clearAuth();
-    state = const AuthState(isLoading: false, isAuthenticated: false);
+    await storage.clearAuth();
+    state = const AuthState();
   }
 }

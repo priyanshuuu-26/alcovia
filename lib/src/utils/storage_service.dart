@@ -1,34 +1,51 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-class StorageService {
-  static const _keyToken = 'auth_token';
-  static const _keyStudentId = 'student_id';
-  static const _keyName = 'student_name';
+class StoredAuth {
+  final String? studentId;
+  final String? name;
+  final String? email;
+  final String? status;
 
+  StoredAuth({
+    this.studentId,
+    this.name,
+    this.email,
+    this.status,
+  });
+}
+
+class StorageService {
+  /// Save login session
   Future<void> saveAuth({
-    required String token,
     required String studentId,
     required String name,
+    required String email,
+    required String status,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyToken, token);
-    await prefs.setString(_keyStudentId, studentId);
-    await prefs.setString(_keyName, name);
+    await prefs.setString("studentId", studentId);
+    await prefs.setString("name", name);
+    await prefs.setString("email", email);
+    await prefs.setString("status", status);
   }
 
-  Future<({String? token, String? studentId, String? name})> loadAuth() async {
+  /// Load auth from storage at app start
+  Future<StoredAuth> loadAuth() async {
     final prefs = await SharedPreferences.getInstance();
-    return (
-      token: prefs.getString(_keyToken),
-      studentId: prefs.getString(_keyStudentId),
-      name: prefs.getString(_keyName),
+    return StoredAuth(
+      studentId: prefs.getString("studentId"),
+      name: prefs.getString("name"),
+      email: prefs.getString("email"),
+      status: prefs.getString("status"),
     );
   }
 
+  /// Clear session on logout
   Future<void> clearAuth() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_keyToken);
-    await prefs.remove(_keyStudentId);
-    await prefs.remove(_keyName);
+    await prefs.remove("studentId");
+    await prefs.remove("name");
+    await prefs.remove("email");
+    await prefs.remove("status");
   }
 }
