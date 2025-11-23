@@ -1,16 +1,23 @@
-# alcovia
+## 🔌 API Integration Guide
 
-A new Flutter project.
+Backend engineer should update only: /lib/api/api_service.dart
 
-## Getting Started
+Functions to implement:
+1. login(email, password)
+2. getStudentStatus(studentId)
+3. submitDailyCheckin(studentId, score, minutes)
+4. markTaskComplete(studentId)
 
-This project is a starting point for a Flutter application.
+### Expected JSON responses
+Login:
+{ "token": "", "student_id": "", "name": "" }
 
-A few resources to get you started if this is your first Flutter project:
+Student Status:
+{ "state": "normal" | "locked" | "remedial", "task": "string|null" }
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Daily Check-in:
+{ "status": "", "student_state": "" }
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### ⚠️ Required headers
+Authorization: Bearer <token>
+Content-Type: application/json
