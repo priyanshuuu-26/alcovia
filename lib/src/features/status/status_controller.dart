@@ -1,9 +1,8 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod/legacy.dart';
 import '../auth/auth_controller.dart';
 import '../../api/api_service.dart';
 
-/// student can have 3 states from backend:
+/// student can have 3 states from backend
 enum StudentAppState { normal, locked, remedial }
 
 class StatusState {
@@ -11,7 +10,7 @@ class StatusState {
   final StudentAppState? state;
   final String? task;
   final String? mentorName;
-  final String? mentorEmail;
+  //final String? mentorEmail;
   final String? error;
 
   const StatusState({
@@ -19,7 +18,7 @@ class StatusState {
     this.state,
     this.task,
     this.mentorName,
-    this.mentorEmail,
+  //  this.mentorEmail,
     this.error,
   });
 
@@ -28,7 +27,7 @@ class StatusState {
     StudentAppState? state,
     String? task,
     String? mentorName,
-    String? mentorEmail,
+   // String? mentorEmail,
     String? error,
   }) {
     return StatusState(
@@ -36,7 +35,7 @@ class StatusState {
       state: state ?? this.state,
       task: task ?? this.task,
       mentorName: mentorName ?? this.mentorName,
-      mentorEmail: mentorEmail ?? this.mentorEmail,
+  //    mentorEmail: mentorEmail ?? this.mentorEmail,
       error: error,
     );
   }
@@ -54,11 +53,11 @@ class StatusController extends StateNotifier<StatusState> {
   StatusController(this.api) : super(const StatusState());
 
   /// load status from backend
-  Future<void> loadStatus(String studentId) async {
+  Future<void> loadStatus(String email) async {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final status = await api.getStudentStatus(studentId); // 👈 FIXED
+      final status = await api.getStudentStatus(email);
       state = state.copyWith(
         isLoading: false,
         state: status.state,
@@ -70,16 +69,35 @@ class StatusController extends StateNotifier<StatusState> {
     }
   }
 
-  Future<void> refreshStatus(String studentId) async {
-    await loadStatus(studentId);
-  }
+Future<void> refreshStatus(String email) async {
+  state = state.copyWith(isLoading: true, error: null);
 
-  /// Mark task complete
-  Future<void> completeTask(String studentId) async {
+  try {
+    final result = await api.getStudentStatus(email);
+
+    state = state.copyWith(
+      isLoading: false,
+      state: result.state,
+      task: result.task,
+      mentorName: result.mentorName,
+      error: null,
+    );
+  } catch (e) {
+    state = state.copyWith(
+      isLoading: false,
+      error: "Unable to refresh. Please try again.",
+    );
+  }
+}
+
+
+
+
+  Future<void> completeTask(String email) async {
     state = state.copyWith(isLoading: true);
     try {
-      await api.markTaskComplete(studentId: studentId);
-      await loadStatus(studentId); // reload after completion
+      await api.markTaskComplete(studentId: email);
+      await loadStatus(email);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }

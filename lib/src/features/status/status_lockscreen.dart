@@ -1,7 +1,6 @@
 import 'package:alcovia/src/features/status/remedial_task_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../auth/auth_controller.dart';
 import 'status_controller.dart';
 import '../home/home_screen.dart';
@@ -14,11 +13,18 @@ class LockedScreen extends ConsumerWidget {
     final statusState = ref.watch(statusControllerProvider);
     final auth = ref.watch(authControllerProvider);
 
-    /// 🔥 Auto navigation when mentor updates status
-   ref.listen(statusControllerProvider, (prev, next) {
+    /// Auto navigation when mentor updates status
+  ref.listen(statusControllerProvider, (prev, next) {
   if (!context.mounted) return;
 
-  // 🔹 Mentor cleared profile → go to Home
+  // 🔹 show error when refresh failed
+  if (next.error != null && next.error!.isNotEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(next.error!)),
+    );
+  }
+
+  // Mentor cleared profile → go to Home
   if (next.state == StudentAppState.normal) {
     Navigator.pushAndRemoveUntil(
       context,
@@ -28,7 +34,7 @@ class LockedScreen extends ConsumerWidget {
     return;
   }
 
-  // 🔹 Navigate to RemedialTaskScreen ONLY when task exists
+  // Navigate to Remedial only if task exists
   final hasRemedialTask =
       next.state == StudentAppState.remedial &&
       next.task != null &&
@@ -47,7 +53,6 @@ class LockedScreen extends ConsumerWidget {
   }
 });
 
-
     return PopScope(
       canPop: false, // prevent user from exiting exam result lock
       child: Scaffold(
@@ -62,7 +67,7 @@ class LockedScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(24),
                 child: statusState.isLoading
                     ? const Center(child: CircularProgressIndicator())
-                    : _lockedContent(context, ref, statusState, auth.studentId),
+                    : _lockedContent(context, ref, statusState, auth.email),
               ),
             ),
           ),
@@ -75,11 +80,11 @@ class LockedScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     StatusState statusState,
-    String? studentId,
+    String? email,
   ) {
-    if (studentId == null) {
+    if (email == null) {
       return const Text(
-        "Student ID is missing",
+        "Email is missing",
         textAlign: TextAlign.center,
       );
     }
@@ -106,7 +111,7 @@ class LockedScreen extends ConsumerWidget {
                 : () {
                     ref
                         .read(statusControllerProvider.notifier)
-                        .refreshStatus(studentId);
+                        .refreshStatus(email);
                   },
             child: const Text("Refresh Status"),
           ),

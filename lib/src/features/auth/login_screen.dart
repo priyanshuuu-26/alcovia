@@ -30,14 +30,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
 
-    // Riverpod listener inside build (safe with guard)
     if (!_listenerSet) {
       _listenerSet = true;
 
       ref.listen<AuthState>(authControllerProvider, (prev, next) {
         if (!mounted) return;
 
-        // 🔥 as soon as authenticated, navigate — no validation required
         if (next.isAuthenticated) {
           Navigator.pushAndRemoveUntil(
             context,

@@ -9,8 +9,10 @@ class QuizState {
   final Map<String, String> answers;
   final bool isSubmitting;
   final String? error;
+  final String email;
 
   const QuizState({
+    required this.email,
     this.isLoading = false,
     this.quiz,
     this.currentIndex = 0,
@@ -26,8 +28,10 @@ class QuizState {
     Map<String, String>? answers,
     bool? isSubmitting,
     String? error,
+    String? email,
   }) {
     return QuizState(
+      email: email ?? this.email,
       isLoading: isLoading ?? this.isLoading,
       quiz: quiz ?? this.quiz,
       currentIndex: currentIndex ?? this.currentIndex,
@@ -38,19 +42,25 @@ class QuizState {
   }
 }
 
-final quizControllerProvider =
-    StateNotifierProvider<QuizController, QuizState>((ref) {
+final quizControllerProvider = StateNotifierProvider<QuizController, QuizState>(
+  (ref) {
     final api = ref.watch(apiProvider);
+    final auth = ref.watch(authControllerProvider);
 
-  return QuizController(apiService: api);
-});
+    return QuizController(
+      apiService: api, 
+      email: auth.email ?? "");
+
+  },
+);
 
 class QuizController extends StateNotifier<QuizState> {
   final ApiService apiService;
   DateTime? _startTime;
 
-  QuizController({required this.apiService}) : super(const QuizState());
-Future<void> loadQuiz() async {
+  QuizController({required this.apiService, required String email})
+    : super(QuizState(email: email));
+  Future<void> loadQuiz() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final quiz = await apiService.getQuiz();
@@ -63,12 +73,9 @@ Future<void> loadQuiz() async {
         answers: {},
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false,
-      error: "Failed to load quiz");
+      state = state.copyWith(isLoading: false, error: "Failed to load quiz");
     }
   }
-
-
 
   void selectAnswer(String questionId, String answer) {
     final newAnswers = Map<String, String>.from(state.answers);
@@ -89,33 +96,30 @@ Future<void> loadQuiz() async {
     }
   }
 
-  Future<SubmitQuizResult?> submitQuiz({
-  required String studentId,
-}) async {
-  if (state.quiz == null) return null;
+  Future<SubmitQuizResult?> submitQuiz({required String studentId}) async {
+    if (state.quiz == null) return null;
 
-  state = state.copyWith(isSubmitting: true, error: null);
+    state = state.copyWith(isSubmitting: true, error: null);
 
-  try {
-    final endTime = DateTime.now();
-    final start = _startTime ?? endTime;
-    final seconds = endTime.difference(start).inSeconds;
-    final focusMinutes = (seconds / 60).ceil().clamp(1, 180);
+    try {
+      final endTime = DateTime.now();
+      final start = _startTime ?? endTime;
+      final seconds = endTime.difference(start).inSeconds;
+      final focusMinutes = (seconds / 60).ceil().clamp(1, 180);
 
-    final result = await apiService.submitQuiz(
-      studentId: studentId,
-      quizId: state.quiz!.quizId,
-      answers: state.answers,
-      focusMinutes: focusMinutes,
-    );
+      final result = await apiService.submitQuiz(
+        studentId: studentId,
+        quizId: state.quiz!.quizId,
+        answers: state.answers,
+        focusMinutes: focusMinutes,
+        email: state.email,
+      );
 
-    state = state.copyWith(isSubmitting: false);
-    return result;
-  } catch (e) {
-    state = state.copyWith(isSubmitting: false, error: e.toString());
-    return null;
+      state = state.copyWith(isSubmitting: false);
+      return result;
+    } catch (e) {
+      state = state.copyWith(isSubmitting: false, error: e.toString());
+      return null;
+    }
   }
-}
-
-
 }

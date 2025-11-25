@@ -21,21 +21,14 @@ class QuizQuestion {
   final String text;
   final List<String> options;
 
-  QuizQuestion({
-    required this.id,
-    required this.text,
-    required this.options,
-  });
+  QuizQuestion({required this.id, required this.text, required this.options});
 }
 
 class QuizData {
   final String quizId;
   final List<QuizQuestion> questions;
 
-  QuizData({
-    required this.quizId,
-    required this.questions,
-  });
+  QuizData({required this.quizId, required this.questions});
 }
 
 class SubmitQuizResult {
@@ -55,11 +48,7 @@ class StudentStatus {
   final String? task;
   final String? mentorName;
 
-  StudentStatus({
-    required this.state,
-    this.task,
-    this.mentorName,
-  });
+  StudentStatus({required this.state, this.task, this.mentorName});
 }
 
 class ApiException implements Exception {
@@ -75,7 +64,9 @@ class ApiService {
   static const _loginUrl =
       "https://quiz-test-wgcc.onrender.com/api-student/create";
   static const _markCompleteUrl =
-      "https://quiz-test-wgcc.onrender.com/api-student/task-complete"; 
+      "https://quiz-test-wgcc.onrender.com/api-student/task-complete";
+  static const _getRemedialUrl =
+      "https://quiz-test-wgcc.onrender.com/api-remedial/get-remedial";
 
   /// LOGIN — create student session
   Future<LoginResponse> login({
@@ -88,11 +79,8 @@ class ApiService {
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({"email": email, "id": studentId, "password": password}),
     );
-
     print("📥 Login response => ${res.body}");
-
     final json = jsonDecode(res.body);
-
     return LoginResponse(
       studentId: json["id"] ?? studentId,
       name: json["name"] ?? "Student",
@@ -101,15 +89,12 @@ class ApiService {
     );
   }
 
-  /// GET QUIZ — loads quiz
+  /// GET QUIZ
   Future<QuizData> getQuiz() async {
     final res = await http.get(Uri.parse(_getQuizUrl));
-    print("📥 Quiz response => ${res.body}");
-
+    // print("📥 Quiz response => ${res.body}");
     if (res.statusCode != 200) throw ApiException("Failed to fetch quiz");
-
     final json = jsonDecode(res.body);
-
     final questions = (json["questions"] as List).map((q) {
       return QuizQuestion(
         id: q["id"],
@@ -117,25 +102,19 @@ class ApiService {
         options: List<String>.from(q["options"]),
       );
     }).toList();
-
-    return QuizData(
-      quizId: json["quiz_id"],
-      questions: questions,
-    );
+    return QuizData(quizId: json["quiz_id"], questions: questions);
   }
 
-  /// SUBMIT QUIZ — with focus time
+  /// SUBMIT QUIZ
   Future<SubmitQuizResult> submitQuiz({
     required String studentId,
     required String quizId,
     required Map<String, String> answers,
     required int focusMinutes,
+    required String email,
   }) async {
     final answersList = answers.entries.map((entry) {
-      return {
-        "question_id": entry.key,
-        "answer": entry.value,
-      };
+      return {"question_id": entry.key, "answer": entry.value};
     }).toList();
 
     final body = {
@@ -143,22 +122,17 @@ class ApiService {
       "quiz_id": quizId,
       "answers": answersList,
       "focus_minutes": focusMinutes,
+      "student_email": email,
     };
-
-  //  print("🚀 SUBMIT REQUEST BODY => ${jsonEncode(body)}");
-
+    //print("🚀 SUBMIT REQUEST BODY => ${jsonEncode(body)}");
     final res = await http.post(
       Uri.parse(_submitQuizUrl),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode(body),
     );
-
     print("📥 Submit Response => ${res.body}");
-
     if (res.statusCode != 200) throw ApiException("Submit failed");
-
     final json = jsonDecode(res.body);
-
     return SubmitQuizResult(
       score: json["score"] ?? 0,
       maxScore: json["total"] ?? 0,
@@ -166,14 +140,17 @@ class ApiService {
     );
   }
 
-  /// GET STUDENT STATUS — Locked / Remedial / Normal
-  Future<StudentStatus> getStudentStatus(String studentId) async {
-  final url = Uri.parse("https://quiz-test-wgcc.onrender.com/api-student/status?student_id=$studentId");
+  /// GET STUDENT STATUS
+  Future<StudentStatus> getStudentStatus(String email) async {
+    print("🌐 Refresh request with email => $email");
 
-  print("📤 GET Status => $url");
+    final res = await http.post(
+      Uri.parse(_getRemedialUrl),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"email": email}),
+    );
 
-  final res = await http.get(url);
-  print("📥 STATUS Response => ${res.body} | status=${res.statusCode}");
+    print("📥 Response => ${res.body} | Code: ${res.statusCode}");
 
   if (res.statusCode != 200) {
     throw ApiException("Failed to fetch student status");
@@ -182,9 +159,13 @@ class ApiService {
   final json = jsonDecode(res.body);
 
   late final StudentAppState state;
-  if (json["status"] == "Normal") state = StudentAppState.normal;
-  else if (json["status"] == "Remedial") state = StudentAppState.remedial;
-  else state = StudentAppState.locked;
+    if (json["status"] == "Normal") {
+      state = StudentAppState.normal;
+    } else if (json["status"] == "Remedial") {
+      state = StudentAppState.remedial;
+    } else {
+      state = StudentAppState.locked;
+    }
 
   return StudentStatus(
     state: state,
@@ -193,7 +174,6 @@ class ApiService {
   );
 }
 
-
   /// MARK TASK COMPLETE
   Future<void> markTaskComplete({required String studentId}) async {
     final res = await http.post(
@@ -201,7 +181,36 @@ class ApiService {
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({"student_id": studentId}),
     );
-
     print("📥 Task Complete Response => ${res.body}");
   }
+
+  /// GET REMEDIAL BY EMAIL
+  //   Future<StudentStatus> getRemedialByEmail(String email) async {
+  //     final url = Uri.parse("$_getRemedialUrl?email=$email");
+  //     print("📤 GET Remedial => $url");
+
+  //     final res = await http.get(url);
+  //     print("📥 RESPONSE => ${res.body} | ${res.statusCode}");
+
+  //     if (res.statusCode != 200) {
+  //       throw ApiException("Failed to refresh status");
+  //     }
+
+  //     final json = jsonDecode(res.body);
+
+  //     late final StudentAppState state;
+  //     if (json["status"] == "Normal") {
+  //       state = StudentAppState.normal;
+  //     } else if (json["status"] == "Remedial") {
+  //       state = StudentAppState.remedial;
+  //     } else {
+  //       state = StudentAppState.locked;
+  //     }
+
+  //     return StudentStatus(
+  //       state: state,
+  //       task: json["task"],
+  //       mentorName: json["mentor_name"],
+  //     );
+  //   }
 }

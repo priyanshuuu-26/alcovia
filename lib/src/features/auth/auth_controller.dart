@@ -105,7 +105,7 @@ class AuthController extends StateNotifier<AuthState> {
         error: null,
       );
     } catch (_) {
-      // still allow login even if backend failed
+      
       state = state.copyWith(
         isLoading: false,
         isAuthenticated: true,

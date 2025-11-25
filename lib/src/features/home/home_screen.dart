@@ -1,3 +1,4 @@
+import 'package:alcovia/src/features/auth/login_screen.dart';
 import 'package:alcovia/src/features/quiz/quiz_controller.dart';
 import 'package:alcovia/src/features/status/status_lockscreen.dart';
 import 'package:flutter/material.dart';
@@ -22,10 +23,18 @@ class HomeScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () {
-              ref.read(authControllerProvider.notifier).logout();
+            onPressed: () async {
+              await ref.read(authControllerProvider.notifier).logout();
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
             },
           ),
+
         ],
       ),
       backgroundColor: Colors.grey.shade800,
@@ -85,6 +94,9 @@ class HomeScreen extends ConsumerWidget {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey.shade200,
+                        ),
                         onPressed: () {
                           ref.read(quizControllerProvider.notifier).loadQuiz();
                           Navigator.push(
